@@ -3,6 +3,8 @@
 data/*.mp4
 data/labels.txt
 
+**/**.jpg
+
 ## Python related files and folders
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,4 +1,4 @@
-# Automatic Multiple People Detector
+# Automatic People Detector
 
 ## About
 
