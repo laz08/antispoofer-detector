@@ -1,7 +1,9 @@
 ## Project specific files
 # The data
-data/*.mp4
-data/labels.txt
+data/**/*.mp4
+data/**/*.webm
+
+data/**/labels.txt
 
 **/**.jpg
 
