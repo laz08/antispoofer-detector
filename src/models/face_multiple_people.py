@@ -18,8 +18,7 @@ import numpy as np
 from PIL import Image
 from sklearn.metrics.pairwise import cosine_similarity
 
-
-class FaceTracker(object):
+class MultiplePeopleDetector(object):
     """Face Tracker using a modified version of Fast MTCNN implementation.
     Detects and keeps track on detected faces in a video."""
     
@@ -38,18 +37,13 @@ class FaceTracker(object):
         self.stride = stride
         self.resize = resize
         self.mtcnn = MTCNN(*args, **kwargs)
-        self.faces_detected = {}
-        self.threshold_similarity = 0.90 # At least 0.85
+        self.max_faces_detected = 0
+        self.antispoofer = antispoofer
+        self.min_similarity = 0.90 # Arbitrary
         self.resize_x = 780
         self.resize_y = 550
-        self.antispoofer = antispoofer
             
-    def cacheFace(self, face_grayscale_resized, bbox, index):
-        self.faces_detected[index] = {
-            'vector': face_grayscale_resized,
-            'bbox': bbox
-            }
-            
+        
     def faceToGrayscaleResize(self, face):
         # Grayscale first. We are removing the RBG channels to one so we can compare the faces.
         face_grayscale = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
@@ -61,28 +55,11 @@ class FaceTracker(object):
     def computeSimilarity(self, face_1, face_2):
         return np.mean(cosine_similarity(face_1, face_2))
         
-    def updateCachedFace(self, face_grayscale_resized, bbox):
-        # If there are no cached faces..
-        if(not len(self.faces_detected.keys())):
-            self.cacheFace(face_grayscale_resized, bbox, 0)
-            return
+    # Save data to check manually
+    def saveFace(self, face, l):
+        cv2.imwrite('face_{}.jpg'.format(l), face)
         
-        # Search if it's one of the cached ones.
-        for i in self.faces_detected.keys():
-             faceObj = self.faces_detected[i]
-             cached_vector = faceObj['vector']
-             cached_bbox = faceObj['bbox']
-                          
-             vec_sim = self.computeSimilarity(face_grayscale_resized, cached_vector)
-             if(vec_sim >= self.threshold_similarity):
-                 
-                 self.cacheFace(face_grayscale_resized, bbox, i)
-                 return
-        
-        # Not cached. Someone new. Let's save it.
-        self.cacheFace(face_grayscale_resized, bbox, len(self.faces_detected.keys()))
-        
-    def detectAndTrackFaces(self, frames):
+    def detect(self, frames):
         '''
         Detects and tracks faces (if they have already been seen by the model).
         '''
@@ -94,39 +71,57 @@ class FaceTracker(object):
             ]
                       
         boxes, probs = self.mtcnn.detect(frames[::self.stride])
-        
-        faces = []
+                
         for i, frame in enumerate(frames):
             box_ind = int(i / self.stride)
             if boxes[box_ind] is None:
                 continue
             
-            # If the number of boxes found at a given time is less than 2, skip
+            # Only check when there are at least 2 faces detected at once
             if(len(boxes[box_ind]) < 2):
                 continue
-            
-            for box in boxes[box_ind]:
+            #print("At least 2 boxes at once {}".format(len(boxes[box_ind])))
+
+            faces_frame = []
+            for j, box in enumerate(boxes[box_ind]):
                 box = [int(b) for b in box]
                 face = frame[box[1]:box[3], box[0]:box[2]]
+                
                 
                 # If face detected is somehow empty, skip
                 if(len(face) == 0):
                     continue
                 
                 try:
-                    pil = Image.fromarray(np.uint8(face)).convert('RGB')
-                    pred = self.antispoofer.predict(pil, as_label= False)
-                    if(pred):
-                        # Convert to grayscale and resize
-                        face_grayscale_resize = self.faceToGrayscaleResize(face)
-                     
-                        # Check if it was found in the previous frame and update
-                        self.updateCachedFace(face_grayscale_resize, box)
+                    self.saveFace(face, "{}_{}".format(i,j))
+                    face_pil = Image.fromarray(np.uint8(face)).convert('RGB')
+                    is_real = self.antispoofer.predict(face_pil, as_label= False)
+               
+                    if(is_real): 
+                        face_grayscale = self.faceToGrayscaleResize(face)
+                        # If someone has already been detected in this frame, 
+                        # check that maybe this second faces isn't an ID 
+                        # wrongly detected as someone real.
+                        similarity_reached = False
+                        for stored_face in faces_frame:
+                            tmp_sim = self.computeSimilarity(face_grayscale,
+                                                             stored_face)
+                            # Check similarity
+                            if(tmp_sim >= self.min_similarity):    
+                                similarity_reached = True
+                                break
+                                
+                        # No one detected yet. Let's save the vector just in case.
+                        if(not similarity_reached):
+                            faces_frame.append(face_grayscale)
                 except:
                     continue
-                
+                    
+            if(len(faces_frame) > self.max_faces_detected):
+                self.max_faces_detected = len(faces_frame)
+
                 
     def getDetectedFaces(self):
         ''' Return the faces detected so far'''
-        return self.faces_detected
+        return self.max_faces_detected
     
