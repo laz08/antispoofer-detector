@@ -29,12 +29,6 @@ $ source detection_venv/bin/activate
 $ python -m pip install -r requirements.txt
 ```
 
-
-
-## Project Structure
-
-
-
 ## Run :rocket:
 
 Place the video in some location where you are aware of its path (for example,  in `<project_root>/data/test_videos/`) and pass it as an argument to `main.py`.
