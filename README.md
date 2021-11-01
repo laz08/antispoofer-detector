@@ -34,15 +34,18 @@ $ python -m pip install -r requirements.txt
 Place the video in some location where you are aware of its path (for example,  in `<project_root>/data/test_videos/`) and pass it as an argument to `main.py`.
 
 ```bash
-$ python src/main.py -i data/test_videos -o results.txt
+# Change dir so that the Antispoofer can load the .pt model. It won't find it otherwise
+$ cd src 
+$ python main.py -i ../data/test_videos -o results.txt
 ```
 
 where 
 
 - -i specifies the directory where the test videos are located.
 - -d specifies the input directory where the data is located. You should use the same structure as the one provided in `data/dataset_training`.
+- -o specifies the output of the result file.
 
-You should see an output similar to this one:
+You should see an output similar to this one in the CLI:
 
 ```bash
 [*] Processing data/test_videos/test_video_1.mp4
