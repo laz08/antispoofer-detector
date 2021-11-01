@@ -4,9 +4,9 @@
 A modified version of Fast MTCNN.
 
 Strided version of MTCNN to allow for a faster computation.
-Also keeps track of seen faces to track them frame to frame.
+Also detects for each frame whether the faces are spoofed or not.
 
-sources:
+Original sources:
     https://github.com/timesler/facenet-pytorch#guide-to-mtcnn-in-facenet-pytorch
     https://www.kaggle.com/timesler/fast-mtcnn-detector-55-fps-at-full-resolution
 """
@@ -42,7 +42,6 @@ class MultiplePeopleDetector(object):
         self.min_similarity = 0.90 # Arbitrary
         self.resize_x = 780
         self.resize_y = 550
-            
         
     def faceToGrayscaleResize(self, face):
         # Grayscale first. We are removing the RBG channels to one so we can compare the faces.
@@ -59,7 +58,7 @@ class MultiplePeopleDetector(object):
     def saveFace(self, face, l):
         cv2.imwrite('face_{}.jpg'.format(l), face)
         
-    def detect(self, frames):
+    def detect(self, frames, debug = False):
         '''
         Detects and tracks faces (if they have already been seen by the model).
         '''
@@ -93,7 +92,9 @@ class MultiplePeopleDetector(object):
                     continue
                 
                 try:
-                    self.saveFace(face, "{}_{}".format(i,j))
+                    if(debug):
+                        self.saveFace(face, "{}_{}".format(i,j))
+                    
                     face_pil = Image.fromarray(np.uint8(face)).convert('RGB')
                     is_real = self.antispoofer.predict(face_pil, as_label= False)
                

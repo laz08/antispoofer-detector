@@ -5,6 +5,7 @@ import argparse
 import cv2
 import time
 import torch
+from shutil import copyfile
 
 from input.video_loader import VideoLoader
 from imutils.video import FileVideoStream
@@ -38,7 +39,9 @@ video_loader = VideoLoader(base_path)
 # Load the models
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-antispoofer = AntiSpoofer()
+antispoofer = AntiSpoofer(model_name = 'antispoofer_mobilenet.pt', 
+                          device = device)
+
 peopleDet = MultiplePeopleDetector(
     antispoofer,
     stride=4,
@@ -47,7 +50,8 @@ peopleDet = MultiplePeopleDetector(
     factor=0.6,
     keep_all=False,
     device='cpu' # MTCNN is giving CUDA OOM.. Let's keep it on CPU
-)
+    )
+
 
 def detectFaces(video_filename, 
                 skip_frames = 15, 
@@ -56,7 +60,10 @@ def detectFaces(video_filename,
     '''
     Given a video filename (path included), detect and extract its faces.
     '''
-        
+    
+    
+    # Reset number of faces detected in the model
+    peopleDet.max_faces_detected = 0
     frames_processed = 0
     n_faces_det = 0
     
@@ -94,12 +101,10 @@ def detectFaces(video_filename,
     return(faces_detected)
 
 # For each video, determine whether there two different people or not
-from shutil import copyfile
 copyfile('../base_labels.txt', args['output'])
-for video_filename in sorted(video_loader.videos):
-    
+
+for video_filename in sorted(video_loader.videos):    
     print("[*] Processing {}".format(video_filename))
-    
     faces_detected = detectFaces(video_filename)
     print("[*] Video '{}' has {} real people at once.".format(video_filename, faces_detected))
     

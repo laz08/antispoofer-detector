@@ -14,20 +14,28 @@ from torchvision import models
 import torch.nn  as nn
 from torchvision import transforms as T
 from torch import optim
-
+ 
 
 class AntiSpoofer(object):
     '''
     Anti Spoofer model.
     '''
-    def __init__(self, model_name = 'mobilenet_sgd_00001_id.pt'):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(self, model_name = 'antispoofer_mobilenet.pt', device = None):
+        # Establish device to use
+        if(device is not None):
+            self.device = device
+        else:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # Load model
         self.model = self.loadModel(model_name)
         
         # Correspondence is:
         #   - 0: Fake
         #   - 1: Real
         self.classes = ['fake', 'real']
+        self.pos_real_tensor = 1 # Position in tensor for real class
+        self.pos_fake_tensor = 0
         mean_vec = [0.485, 0.456, 0.406]
         std_vec = [0.229, 0.224, 0.225]
         
@@ -38,6 +46,8 @@ class AntiSpoofer(object):
                     T.ToTensor(),
                     T.Normalize(mean_vec, std_vec)
                     ])
+        self.softmax = nn.Softmax(dim=1)
+        self.real_threshold = 0.3
         return
     
     def loadModel(self, model_name):
@@ -64,20 +74,21 @@ class AntiSpoofer(object):
         face_t = face_t.unsqueeze(0)
         with torch.no_grad():
             output = self.model(face_t)
-        
-        _, preds = torch.max(output, 1)
-        
-        
-        
-        
-        if(as_label):
-            result = self.classes[preds[0]]
-        else:
-            result = (preds[0] == 1) # True if real, False if not
             
-        # Delete face tensor from device
-        del face_t
-        del output
-        del preds
-        torch.cuda.empty_cache()
-        return result
+        # Apply softmax to gather probabilities for each class
+        soft = self.softmax(output)
+        soft = soft.cpu().detach().numpy()
+        
+        # Tensor is like [[0.9365574  0.06344264]]
+        prob_real = soft[0][self.pos_real_tensor]
+        
+        # Probability of being real is at least the threshold established
+        if(prob_real >= self.real_threshold):
+            if(as_label):
+                return self.classes[self.pos_real_tensor]
+            return 1
+        # Else... Is fake
+        if(as_label):
+            return self.classes[self.pos_fake_tensor]
+        return 0
+        

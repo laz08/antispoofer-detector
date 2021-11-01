@@ -164,17 +164,17 @@ def train_model(model, criterion, optimizer, scheduler, epochs=10):
     model.load_state_dict(best_model)
     return model
 
-
+epochs = int(args['epochs'])
 
 #optimizer = torch.optim.SGD(params, lr=0.0005, momentum=0.9, weight_decay=0.0005) # 0.00005
 #optimizer = torch.optim.AdamW(params, lr=0.000005, betas=(0.9, 0.999), weight_decay=0.01)
 optimizer = optim.SGD(model.parameters(), lr=0.00001, momentum=0.9)
 
 # Decay Learning Rate 0.1 every 7 steps
-scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=epochs, gamma=0.1)
 criterion = nn.CrossEntropyLoss()
 
-epochs = int(args['epochs'])
+
 
 print("[INFO] Starting to train model...")
 print("    [-] Epochs: {}".format(epochs))
